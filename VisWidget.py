@@ -13,6 +13,8 @@ from NodeData import *
 from Vector import Vector4
 from Observer import observable, Observer
 
+import threading
+
 
 class VisWidget(QGLWidget):
     def __init__(self, parent=None):
@@ -26,28 +28,37 @@ class VisWidget(QGLWidget):
         self.root = None
         self._selectedId = 0
 
+        self.timer = QBasicTimer()
+        self.timedUpdate()
+
         Observer().add(self.debugger, 'pause', self.updateWidget)
-        Observer().add(self.debugger, 'end', self.update)
+        Observer().add(self.debugger, 'end', self.timedUpdate)
+
+    def timedUpdate(self):
+        if not self.timer.isActive():
+            self.timer.start(30, self)
 
     def updateWidget(self, *args, **kwargs):
         if self.root is None:
             self.root = Node(data=NodeDataFactory(self.debugger.process))
 
-        self.root.clear()
-        self.root.data.setTo(self.debugger.process)
+        self.selectedId = 0
 
-        for thread in self.debugger.threads():
-            t_node = Node(data=NodeDataFactory(thread))
-            self.root.add(t_node)
-            for frame in self.debugger.frames(thread):
-                f_node = Node(data=NodeDataFactory(frame))
-                t_node.add(f_node)
-                for value in self.debugger.values(frame, thread):
-                    v_node = Node(data=NodeDataFactory(value))
-                    f_node.add(v_node)
+        with threading.Lock():
+            self.root.clear()
+            self.root.data.setTo(self.debugger.process)
 
-        self.layout.apply(self.root)
-        self.update()
+            for thread in self.debugger.threads():
+                t_node = Node(data=NodeDataFactory(thread))
+                self.root.add(t_node)
+                for frame in self.debugger.frames(thread):
+                    f_node = Node(data=NodeDataFactory(frame))
+                    t_node.add(f_node)
+                    for value in self.debugger.values(frame, thread):
+                        v_node = Node(data=NodeDataFactory(value))
+                        f_node.add(v_node)
+
+            self.layout.apply(self.root)
 
     @property
     def selectedId(self):
@@ -93,11 +104,17 @@ class VisWidget(QGLWidget):
         glEnable(GL_LIGHTING)
         glEnable(GL_LIGHT0)
 
+        glColorMaterial(GL_FRONT_AND_BACK, GL_DIFFUSE)
+        glEnable(GL_COLOR_MATERIAL)
+
         gluQuadricNormals(self.quadric, GLU_SMOOTH)
 
         self.setFocusPolicy(Qt.StrongFocus)
         self.format().setDoubleBuffer(True)
         self.setAutoBufferSwap(True)
+
+    def timerEvent(self, QTimerEvent):
+        self.update()
 
     def paintGL(self):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -109,8 +126,8 @@ class VisWidget(QGLWidget):
             glRotatef(self.camera.eulerAngleYDeg, 0, 1, 0)
             glRotatef(self.camera.eulerAngleXDeg, 1, 0, 0)
 
-            selectedNode = self.selectedNode()
-            glTranslatef(-selectedNode.absoluteX, -selectedNode.absoluteY, -selectedNode.absoluteZ)
+            sel_node = self.selectedNode()
+            glTranslatef(-sel_node.absoluteX, -sel_node.absoluteY, -sel_node.absoluteZ)
 
             glPushMatrix()
 
@@ -122,6 +139,7 @@ class VisWidget(QGLWidget):
             self._drawCenteredText('Set a target and run the debugger')
 
         glFlush()
+        self.timedUpdate()
 
     def _drawCenteredText(self, text):
         painter = QPainter(self)
@@ -192,10 +210,14 @@ class VisWidget(QGLWidget):
                 if selection_buffer[i].near < depth:
                     choice = selection_buffer[i].names[0]
                     depth = selection_buffer[i].near
-            self.selectedId = choice
+            if self.root.getById(choice) is not None:
+                self.selectedId = choice
 
     def mouseMoveEvent(self, QMouseEvent):
         self.input.mouse_move(QMouseEvent)
 
     def wheelEvent(self, QWheelEvent):
         self.input.mouse_wheel(QWheelEvent)
+        min_dist = self.selectedNode().geom.radius + 1
+        if self.camera.position.z < min_dist:
+            self.camera.position.z = min_dist

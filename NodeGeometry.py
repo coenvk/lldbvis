@@ -3,7 +3,7 @@ from math import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
-from Color import Color3
+from ColorScheme import *
 from Label import Label
 from Material import Material
 from Vector import Vector4, Vector3
@@ -14,7 +14,6 @@ class NodeGeometry:
         self.position = Vector3()
         self.radius = 0.2
         self.child_distance = 0
-        self.color = Color3.red()
         self.material = Material(
             Vector4(0, 0, 0.025, 1),
             Vector4(0.4, 0.4, 0.45, 1),
@@ -24,6 +23,19 @@ class NodeGeometry:
         self.collapsed = False
         self.node = node
         self.label = Label(self.node, Vector3(self.x, self.y, self.z))
+
+    @property
+    def color(self):
+        if self.node.isProcessNode():
+            return ColorScheme.PROCESS_NODE.value
+        elif self.node.isThreadNode():
+            return ColorScheme.THREAD_NODE.value
+        elif self.node.isFrameNode():
+            return ColorScheme.FRAME_NODE.value
+        elif self.node.isValueNode():
+            return ColorScheme.VALUE_NODE.value
+
+        return ColorScheme.DEFAULT.value
 
     @property
     def absolutePosition(self):
@@ -104,7 +116,6 @@ class NodeGeometry:
         highlight_id = widget.selectedId
 
         glPushMatrix()
-        self.material.setGL()
 
         glTranslatef(self.x, self.y, self.z)
 
@@ -112,13 +123,16 @@ class NodeGeometry:
             for i in range(self.node.size()):
                 child = self.node[i]
 
-                Material.chrome().setGL()
-
+                glPushAttrib(GL_ALL_ATTRIB_BITS)
                 glPushMatrix()
+
+                glDisable(GL_COLOR_MATERIAL)
+                Material.chrome().setGL()
 
                 self._drawCylinder(child.geom.position, 0.03, 5, quadric)
 
                 glPopMatrix()
+                glPopAttrib()
 
                 child.draw(widget)
 
@@ -126,6 +140,8 @@ class NodeGeometry:
         outlined = self.node.id == highlight_id
         if outlined:
             self._preOutline()
+
+        self.material.setGL()
         glColor3f(self.color.r, self.color.g, self.color.b)
         glLoadName(self.node.id)
         gluSphere(quadric, self.radius, 20, 20)

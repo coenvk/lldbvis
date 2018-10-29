@@ -123,6 +123,7 @@ class Node:
                 n = self.children[i].getById(id)
                 if n is not None:
                     return n
+        return None
 
     def getByName(self, name):
         if self.name == name:
@@ -157,7 +158,7 @@ class Node:
         self.geom.draw(widget)
 
     def __str__(self):
-        s = '{' + str(self.depth) + ': '
+        s = '{' + str(self.id) + ': '
         for i in range(self.size()):
             s += str(self[i]) + ' '
         s += '}'

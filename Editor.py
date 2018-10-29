@@ -52,6 +52,10 @@ class Editor(QPlainTextEdit):
             content = file.read()
             self.setPlainText(content)
 
+    def clear(self):
+        QPlainTextEdit.clear(self)
+        self.filePath = None
+
     def lineNumberAreaWidth(self):
         digits = 1
         count = max(1, self.blockCount())

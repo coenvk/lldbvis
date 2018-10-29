@@ -15,12 +15,14 @@ class Keyboard:
 
 
 class Mouse:
-    def __init__(self, mouseSensitivity=0.005, zoomSpeed=0.004):
+    def __init__(self, mouseSensitivity=0.005, zoomSpeed=0.004, minZoom=50, maxZoom=0):
         self.leftPressed = False
         self.rightPressed = False
         self.mouseDrag = False
         self.mousePos = Vector2()
         self.zoomSpeed = zoomSpeed
+        self.minZoom = minZoom
+        self.maxZoom = maxZoom
         self.mouseSensitivity = mouseSensitivity
 
     def mouse_press(self, event):
@@ -99,4 +101,7 @@ class Input(Mouse, Keyboard):
 
     def mouse_wheel(self, event):
         self.camera.position.z -= event.delta() * self.zoomSpeed
-
+        if self.camera.position.z < self.maxZoom:
+            self.camera.position.z = self.maxZoom
+        elif self.camera.position.z > self.minZoom:
+            self.camera.position.z = self.minZoom

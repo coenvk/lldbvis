@@ -1,4 +1,5 @@
 from enum import Enum, EnumMeta, _EnumDict
+from Color import Color3
 
 
 class IntEnum(int, Enum):
@@ -41,7 +42,14 @@ class AutoEnum(IntEnum, UniqueEnum):
     __metaclass__ = AutoEnumMeta
 
 
-class ColorScheme(AutoEnum):
-    COLOR1 = 0
-    COLOR2 = ()
-    COLOR3 = ()
+class TypedEnum(Enum):
+    def __init__(self, type, *args):
+        Enum.__init__(self, *args)
+        cls = self.__class__
+        if any(not isinstance(x.value, type) for x in cls):
+            raise TypeError('All enum values must be of type %r' % type)
+
+
+class ColorEnum(TypedEnum):
+    def __init__(self, *args):
+        TypedEnum.__init__(self, Color3, *args)

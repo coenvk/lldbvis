@@ -13,6 +13,7 @@ from Debugger import Debugger
 from Observer import Observer
 
 import threading
+import warnings
 
 
 class RunArgumentsDialog(QDialog):
@@ -122,8 +123,14 @@ class VisWindow(QMainWindow):
 
 
 def main():
+    os.environ['QT_API'] = 'pyqt'
+
     app = QApplication(sys.argv)
-    dark_stylesheet = qdarkstyle.load_stylesheet_from_environment()
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', FutureWarning)
+        dark_stylesheet = qdarkstyle.load_stylesheet_from_environment()
+
     app.setStyleSheet(dark_stylesheet)
 
     window = VisWindow()
@@ -164,5 +171,4 @@ def main():
 
 
 if __name__ == '__main__':
-    os.environ['QT_API'] = 'pyqt'
     main()
