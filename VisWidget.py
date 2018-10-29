@@ -27,6 +27,7 @@ class VisWidget(QGLWidget):
         self._selectedId = 0
 
         Observer().add(self.debugger, 'pause', self.updateWidget)
+        Observer().add(self.debugger, 'end', self.update)
 
     def updateWidget(self, *args, **kwargs):
         if self.root is None:
@@ -46,6 +47,7 @@ class VisWidget(QGLWidget):
                     f_node.add(v_node)
 
         self.layout.apply(self.root)
+        self.update()
 
     @property
     def selectedId(self):
@@ -94,11 +96,12 @@ class VisWidget(QGLWidget):
         gluQuadricNormals(self.quadric, GLU_SMOOTH)
 
         self.setFocusPolicy(Qt.StrongFocus)
+        self.format().setDoubleBuffer(True)
         self.setAutoBufferSwap(True)
 
     def paintGL(self):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        if self.root is not None and self.debugger.isSetup:
+        if self.root is not None and self.debugger.running:
             glLoadIdentity()
 
             glTranslatef(-self.camera.x, -self.camera.y, -self.camera.z)
@@ -118,7 +121,7 @@ class VisWidget(QGLWidget):
         else:
             self._drawCenteredText('Set a target and run the debugger')
 
-        self.update()
+        glFlush()
 
     def _drawCenteredText(self, text):
         painter = QPainter(self)

@@ -1,11 +1,14 @@
-from PyQt4.QtGui import *
+import os
+import sys
+
+import qdarkstyle
 from PyQt4.QtCore import *
+from PyQt4.QtGui import *
+from lldb import *
+
+from BPL import BPL
 from Debugger import Debugger
 from Observer import Observer
-from lldb import *
-import sys
-import qdarkstyle
-import os
 
 
 class LineNumberArea(QWidget):
@@ -138,6 +141,66 @@ class Editor(QPlainTextEdit):
         self.setExtraSelections(extraSelections)
 
 
+class BreakpointsEditor(Editor):
+    def __init__(self, *args):
+        Editor.__init__(self, *args)
+        self.breakpoints = []
+        self.bpl = BPL()
+
+    def openFile(self, name):
+        Editor.openFile(self, name)
+        self.readBreakpoints(name)
+
+    def readBreakpoints(self, file_name):
+        self.bpl.read()
+        self.breakpoints = self.bpl.getBreakpoints(file_name)
+
+    def lineNumberAreaMousePressEvent(self, QMouseEvent):
+        block = self.firstVisibleBlock()
+        blockNumber = block.blockNumber()
+        top = self.blockBoundingGeometry(block).translated(self.contentOffset()).top()
+        height = self.blockBoundingRect(block).height()
+        width = self.lineNumberArea.width()
+        bottom = top + height
+        while block.isValid():
+            if top <= QMouseEvent.y() <= bottom and 0 <= QMouseEvent.x() <= width:
+                if blockNumber not in self.breakpoints:
+                    self.breakpoints.append(blockNumber)
+                elif blockNumber in self.breakpoints:
+                    self.breakpoints.remove(blockNumber)
+
+            block = block.next()
+            top = bottom
+            bottom = top + self.blockBoundingRect(block).height()
+            blockNumber += 1
+
+        self.repaint()
+
+    def lineNumberAreaPaintEvent(self, QPaintEvent):
+        painter = QPainter(self.lineNumberArea)
+        bg_color = QColor(200, 200, 200, 70)
+        painter.fillRect(QPaintEvent.rect(), bg_color)
+
+        block = self.firstVisibleBlock()
+        blockNumber = block.blockNumber()
+        top = self.blockBoundingGeometry(block).translated(self.contentOffset()).top()
+        bottom = top + self.blockBoundingRect(block).height()
+        height = self.fontMetrics().height()
+        while block.isValid() and (top <= QPaintEvent.rect().bottom()):
+            if block.isVisible() and (bottom >= QPaintEvent.rect().top()):
+                number = str(blockNumber + 1)
+                painter.setPen(QColor(255, 255, 255, 120))
+                painter.drawText(0, top, self.lineNumberArea.width(), height, Qt.AlignRight, number)
+                if blockNumber in self.breakpoints:
+                    painter.setBrush(Qt.red)
+                    painter.drawEllipse(0, top + height / 8, 3 * height / 4, 3 * height / 4)
+
+            block = block.next()
+            top = bottom
+            bottom = top + self.blockBoundingRect(block).height()
+            blockNumber += 1
+
+
 class CodeEditor(QMainWindow):
     def __init__(self, *args):
         QMainWindow.__init__(self, *args)
@@ -184,11 +247,19 @@ class TabbedEditor(QTabWidget):
         editor = self.widget(idx)
         if editor in self.unsaved_tabs:
             msg_box = QMessageBox()
-            ret = msg_box.warning(self, 'Closing an unsaved file!', 'Are you sure you want to close this tab?', QMessageBox.Ok, QMessageBox.Cancel)
+            ret = msg_box.warning(self, 'Closing an unsaved file!', 'Are you sure you want to close this tab?',
+                                  QMessageBox.Ok, QMessageBox.Cancel)
             if ret == QMessageBox.Ok:
                 self.removeTab(idx)
         else:
             self.removeTab(idx)
+
+    def saveBreakpoints(self):
+        idx = self.currentIndex()
+        editor = self.widget(idx)
+
+        editor.bpl.setBreakpoints(str(editor.filePath), editor.breakpoints)
+        editor.bpl.save()
 
     def saveAsFile(self):
         idx = self.currentIndex()
@@ -201,6 +272,8 @@ class TabbedEditor(QTabWidget):
             f = open(file_path, 'w')
             with f:
                 f.write(content)
+
+            self.saveBreakpoints()
 
         if editor in self.unsaved_tabs:
             self.setTabText(idx, editor.filePath)
@@ -219,6 +292,8 @@ class TabbedEditor(QTabWidget):
             f = open(file_path, 'w')
             with f:
                 f.write(content)
+
+            self.saveBreakpoints()
 
         if editor in self.unsaved_tabs:
             self.setTabText(idx, editor.filePath)
@@ -242,7 +317,7 @@ class TabbedEditor(QTabWidget):
             self.setTabText(idx, str(tab.filePath) + '*')
 
     def addFileTab(self, file_name, is_new=False):
-        tab = Editor()
+        tab = BreakpointsEditor()
         idx = self.addTab(tab, file_name)
         if not is_new:
             tab.openFile(file_name)
@@ -268,31 +343,109 @@ class DebugWidget(QWidget):
         self.layout().setMargin(0)
         self.layout().setSpacing(0)
 
+        self.continueAction = None
+        self.pauseAction = None
+        self.stopAction = None
+
         self.tb = self.createToolbar()
+
         self.layout().addWidget(self.tb)
 
-        editor = DebugEditor()
-        self.layout().addWidget(editor)
+        self.editor = DebugEditor()
+        self.layout().addWidget(self.editor)
 
         self.setEnabled(False)
 
         Observer().add(self.debugger, 'setup', self.enable)
+        Observer().add(self.debugger, 'pause', lambda: [self.enableButtons(), self.pauseAction.setEnabled(False)])
+        Observer().add(self.debugger, 'end', self.disable)
+
+    def enableButtons(self, *args, **kwargs):
+        for action in self.tb.actions():
+            action.setEnabled(True)
 
     def enable(self, *args, **kwargs):
         self.setEnabled(True)
 
+    def disable(self, *args, **kwargs):
+        self.setEnabled(False)
+        self.disableButtons()
+        self.editor.clear()
+
+    def disableButtons(self):
+        for action in self.tb.actions():
+            action.setEnabled(False)
+
+    def _preContinue(self):
+        self.disableButtons()
+        self.pauseAction.setEnabled(True)
+        self.stopAction.setEnabled(True)
+
+    def resumeDebugger(self):
+        self._preContinue()
+        self.debugger.resume()
+
+    def stopDebugger(self):
+        self.debugger.stop()
+
+    def killDebugger(self):
+        self.debugger.kill()
+
+    def stepOver(self):
+        self._preContinue()
+        self.debugger.stepOver()
+
+    def stepInto(self):
+        self._preContinue()
+        self.debugger.stepInto()
+
+    def stepOut(self):
+        self._preContinue()
+        self.debugger.stepOut()
+
+    def stepInstruction(self):
+        self._preContinue()
+        self.debugger.stepInstruction()
+
+    def stepOutOfFrame(self):
+        self._preContinue()
+        self.debugger.stepOutOfFrame()
+
     def createToolbar(self):
         tb = QToolBar()
-        continue_process = QAction(QIcon('icons/play.svg'), 'Continue', self)
-        pause_process = QAction(QIcon('icons/pause.svg'), 'Pause', self)
-        stop_process = QAction(QIcon('icons/stop.svg'), 'Stop', self)
+        self.continueAction = QAction(QIcon('icons/play.svg'), 'Continue', self)
+        self.continueAction.triggered.connect(self.resumeDebugger)
+        self.continueAction.setEnabled(False)
+
+        self.pauseAction = QAction(QIcon('icons/pause.svg'), 'Pause', self)
+        self.pauseAction.triggered.connect(self.stopDebugger)
+        self.pauseAction.setEnabled(False)
+
+        self.stopAction = QAction(QIcon('icons/stop.svg'), 'Stop', self)
+        self.stopAction.triggered.connect(self.killDebugger)
+        self.stopAction.setEnabled(False)
 
         step_over = QAction(QIcon('icons/step_over.ico'), 'Step Over', self)
+        step_over.triggered.connect(self.stepOver)
+        step_over.setEnabled(False)
+
         step_into = QAction(QIcon('icons/step_into.ico'), 'Step Into', self)
+        step_into.triggered.connect(self.stepInto)
+        step_into.setEnabled(False)
+
         step_out = QAction(QIcon('icons/step_out.ico'), 'Step Out', self)
+        step_out.triggered.connect(self.stepOut)
+        step_out.setEnabled(False)
+
         step_instruction = QAction(QIcon('icons/step_instruction.ico'), 'Step Single Instruction', self)
+        step_instruction.triggered.connect(self.stepInstruction)
+        step_instruction.setEnabled(False)
+
         step_out_of_frame = QAction(QIcon('icons/step_out_of_frame.ico'), 'Step Out Of Frame', self)
-        tb.addActions([continue_process, pause_process, stop_process])
+        step_out_of_frame.triggered.connect(self.stepOutOfFrame)
+        step_out_of_frame.setEnabled(False)
+
+        tb.addActions([self.continueAction, self.pauseAction, self.stopAction])
         tb.addSeparator()
         tb.addActions([step_over, step_into, step_out, step_out_of_frame, step_instruction])
         return tb
@@ -335,28 +488,6 @@ class DebugEditor(Editor):
 
     def lineNumberAreaMousePressEvent(self, QMouseEvent):
         pass
-        # state = self.debugger.process.GetState()
-        # if not self.debugger.process.IsValid() or state == eStateStopped or state == eStateExited:
-        #     block = self.firstVisibleBlock()
-        #     blockNumber = block.blockNumber()
-        #     top = self.blockBoundingGeometry(block).translated(self.contentOffset()).top()
-        #     height = self.blockBoundingRect(block).height()
-        #     width = self.lineNumberArea.width()
-        #     bottom = top + height
-        #     while block.isValid():
-        #         if top <= QMouseEvent.y() <= bottom and 0 <= QMouseEvent.x() <= width:
-        #             if blockNumber not in self.breakpoints:
-        #                 self.debugger.addBreakpoint(self.filePath, blockNumber + 1)
-        #             elif blockNumber in self.breakpoints:
-        #                 bp = SBBreakpoint(self.debugger.breakpoints(self.filePath, blockNumber + 1)[0])
-        #                 self.debugger.removeBreakpoint(bp)
-        #
-        #         block = block.next()
-        #         top = bottom
-        #         bottom = top + self.blockBoundingRect(block).height()
-        #         blockNumber += 1
-        #
-        #     self.repaint()
 
     def lineNumberAreaPaintEvent(self, QPaintEvent):
         painter = QPainter(self.lineNumberArea)

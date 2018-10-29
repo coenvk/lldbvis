@@ -1,4 +1,4 @@
-from enum import Enum, EnumMeta, _EnumDict, any
+from enum import Enum, EnumMeta, _EnumDict
 
 
 class IntEnum(int, Enum):

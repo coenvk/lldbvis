@@ -5,11 +5,12 @@ import qdarkstyle
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-from Editor import DebugWidget
+from Editor import DebugWidget, CodeEditor
 from FramesWidget import FramesWidget
 from VariableWidget import VariableWidget
 from VisWidget import VisWidget
 from Debugger import Debugger
+from Observer import Observer
 
 import threading
 
@@ -57,36 +58,59 @@ class RunArgumentsDialog(QDialog):
 class VisWindow(QMainWindow):
     def __init__(self, *args):
         QMainWindow.__init__(self, *args)
+        self.debugger = Debugger()
+        self.debugThread = None
+
         self.targetFile = None
         self.workingDir = None
+
+        self.editor = CodeEditor()
+
+        self.runAction = None
+        self.runMenu = None
         self.createMenuBar()
         self.runArgumentsDialog = RunArgumentsDialog()
+
+        Observer().add(self.debugger, 'end', lambda *args, **kwargs: self.runMenu.setEnabled(True))
 
     def createMenuBar(self):
         mb = self.menuBar()
 
-        run_action = QAction('Run', self)
-        run_action.setDisabled(self.targetFile is None)
-        run_action.setShortcut('Shift+F10')
-        run_action.triggered.connect(self.runDebugger)
+        self.runAction = QAction('Run', self)
+        self.runAction.setDisabled(self.targetFile is None)
+        self.runAction.setShortcut('Shift+F10')
+        self.runAction.triggered.connect(self.runDebugger)
 
         run_config_action = QAction('Set Run Arguments...', self)
-        run_config_action.triggered.connect(lambda: [self.setRunArguments(), self.enableRunAction(run_action)])
+        run_config_action.triggered.connect(lambda: [self.setRunArguments(), self.enableRunAction()])
 
-        run_menu = mb.addMenu('Run')
-        run_menu.addAction(run_action)
-        run_menu.addAction(run_config_action)
+        open_editor_action = QAction('Open Editor', self)
+        open_editor_action.triggered.connect(self.openEditor)
+
+        self.runMenu = mb.addMenu('Run')
+        self.runMenu.addAction(self.runAction)
+        self.runMenu.addAction(run_config_action)
+
+        editor_menu = mb.addMenu('Editor')
+        editor_menu.addAction(open_editor_action)
+
+    def openEditor(self):
+        if self.editor.isHidden():
+            self.editor.show()
+        else:
+            self.editor.activateWindow()
 
     def runDebugger(self):
-        debugger = Debugger()
-        debugger.setup(self.workingDir, self.targetFile)
-        debug_thread = threading.Thread(target=debugger.debugLoop, args=())
-        debug_thread.start()
+        self.debugger.setup(self.workingDir, self.targetFile)
+        self.debugThread = threading.Thread(target=self.debugger.debugLoop, args=())
+        self.debugThread.setDaemon(True)
+        self.debugThread.start()
+        self.runMenu.setEnabled(False)
 
-    def enableRunAction(self, runAction):
+    def enableRunAction(self, *args, **kwargs):
         if self.targetFile is not None:
-            runAction.setEnabled(True)
-            runAction.setText("Run '" + str(self.targetFile) + "'")
+            self.runAction.setEnabled(True)
+            self.runAction.setText("Run '" + str(self.targetFile) + "'")
 
     def setRunArguments(self):
         self.runArgumentsDialog.exec_()

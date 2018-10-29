@@ -22,6 +22,13 @@ class VariableWidget(QWidget):
         Observer().add(self.widget, 'selectedId', self.updateWidget)
 
         Observer().add(self.debugger, 'setup', self.enable)
+        Observer().add(self.debugger, 'pause', self.updateWidget)
+        Observer().add(self.debugger, 'end', self.disable)
+
+    def disable(self, *args, **kwargs):
+        self.setEnabled(False)
+        self.collapseButton.setChecked(False)
+        self.label.clear()
 
     def enable(self, *args, **kwargs):
         self.setEnabled(True)

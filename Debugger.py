@@ -2,6 +2,8 @@ from lldb import *
 
 from Metaclasses import Singleton
 from Observer import observable
+from BPL import BPL
+import time
 
 
 class Debugger:
@@ -15,13 +17,78 @@ class Debugger:
         self.listener = SBListener(self.debugger.GetListener())
         self.isSetup = False
 
+        self.running = False
+        self.paused = False
+
+    def resume(self):
+        if self.running and self.paused:
+            self.paused = False
+            self.process.Continue()
+
+    def stop(self):
+        if self.running and not self.paused:
+            self.paused = True
+            self.process.Stop()
+
+    def kill(self):
+        if self.running:
+            self.paused = False
+            self.process.Kill()
+
+    def stepOut(self):
+        if self.running and self.paused:
+            self.paused = False
+            cur_thread = SBThread(self.currentThread)
+            cur_thread.StepOut()
+
+    def stepInto(self):
+        if self.running and self.paused:
+            self.paused = False
+            cur_thread = SBThread(self.currentThread)
+            cur_thread.StepInto()
+
+    def stepOver(self):
+        if self.running and self.paused:
+            self.paused = False
+            cur_thread = SBThread(self.currentThread)
+            cur_thread.StepOver()
+
+    def stepInstruction(self):
+        if self.running and self.paused:
+            self.paused = False
+            cur_thread = SBThread(self.currentThread)
+            cur_thread.StepInstruction(True)
+
+    def stepOutOfFrame(self):
+        if self.running and self.paused:
+            self.paused = False
+            cur_thread = SBThread(self.currentThread)
+            cur_thread.StepOutOfFrame(self.currentFrame)
+
+    @observable
+    def end(self):
+        self.running = False
+        print 'end'
+
+    def setupBreakpoints(self):
+        bpl = BPL()
+        bpl.read()
+        files = bpl.getFiles()
+        for file in files:
+            name = file["name"]
+            bps = file["breakpoints"]
+            for bp in bps:
+                self.target.BreakpointCreateByLocation(str(name), int(bp) + 1)
+
     @observable
     def setup(self, dir, targetFile):
+        self.paused = False
+
         self.target = SBTarget(self.debugger.CreateTarget(dir + targetFile))
         if not self.target.IsValid():
             raise ValueError
 
-        self.target.BreakpointCreateByName('main')
+        self.setupBreakpoints()
 
         args = [dir + targetFile]
         launch_info = SBLaunchInfo(args)
@@ -141,11 +208,27 @@ class Debugger:
 
     @observable
     def pause(self):
-        pass
+        self.paused = True
+
+    def wait_while_paused(self, timeout=-1):
+        if timeout > 0:
+            end_time = time.time() + timeout
+            while time.time() < end_time:
+                if not self.paused:
+                    return True
+                time.sleep(0.2)
+            return False
+        else:
+            while self.paused:
+                time.sleep(0.2)
+            return True
 
     def debugLoop(self):
         event = SBEvent()
-        while 1:
+        self.running = True
+        while self.running:
+            self.wait_while_paused()
+
             if self.process.GetState() == eStateExited:
                 break
 
@@ -185,10 +268,6 @@ class Debugger:
                         if stop_reason == eStopReasonBreakpoint:
                             for i in range(thread.GetStopReasonDataCount()):
                                 print thread.GetStopReasonDataAtIndex(i)
-                            thread.StepOver()
-
-                        elif stop_reason == eStopReasonPlanComplete:
-                            self.process.Continue()
 
                     else:
                         continue
@@ -215,5 +294,5 @@ class Debugger:
             else:
                 break
 
-        print 'end'
+        self.end()
 
