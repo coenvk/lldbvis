@@ -38,7 +38,7 @@ class Label:
         glPushAttrib(GL_LIGHTING)
         glDisable(GL_LIGHTING)
         color = constants.OPENGL_LABEL_FONT_COLOR
-        glColor3f(color.red(), color.green(), color.blue())
+        glColor3f(color.redF(), color.greenF(), color.blueF())
         glColor3f(1, 1, 1)
         widget.renderText(self.x, self.y, self.z, self.text, self.font)
         glPopAttrib()
