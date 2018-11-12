@@ -4,6 +4,16 @@ class Color3:
         self.g = g
         self.b = b
 
+    def __copy__(self):
+        color = Color3()
+        color.r = self.r
+        color.g = self.g
+        color.b = self.b
+        return color
+
+    def inverse(self):
+        return Color3(1 - self.r, 1 - self.g, 1 - self.b)
+
     @staticmethod
     def red():
         return Color3(1, 0, 0)

@@ -1,6 +1,9 @@
 import sys
-from Vector import Vector3, Vector2
+
 from PyQt4.QtCore import Qt
+
+from settings import constants
+from util.vectors import Vector3, Vector2
 
 
 class Keyboard:
@@ -15,15 +18,16 @@ class Keyboard:
 
 
 class Mouse:
-    def __init__(self, mouseSensitivity=0.005, zoomSpeed=0.004, minZoom=50, maxZoom=0):
+    def __init__(self, mouse_sensitivity=constants.DEFAULT_MOUSE_SENSITIVITY, zoom_speed=constants.DEFAULT_ZOOM_SPEED,
+                 min_zoom=constants.DEFAULT_MINIMAL_ZOOM, max_zoom=constants.DEFAULT_MAXIMAL_ZOOM):
         self.leftPressed = False
         self.rightPressed = False
         self.mouseDrag = False
         self.mousePos = Vector2()
-        self.zoomSpeed = zoomSpeed
-        self.minZoom = minZoom
-        self.maxZoom = maxZoom
-        self.mouseSensitivity = mouseSensitivity
+        self.zoomSpeed = zoom_speed
+        self.minZoom = min_zoom
+        self.maxZoom = max_zoom
+        self.mouseSensitivity = mouse_sensitivity
 
     def mouse_press(self, event):
         pass
@@ -88,7 +92,7 @@ class Input(Mouse, Keyboard):
         if buttons == Qt.LeftButton:
             dx = x - self.mousePos.x
             dy = y - self.mousePos.y
-            self.mouseDrag = Vector2(dx, dy).length() > 0.01
+            self.mouseDrag = Vector2(dx, dy).length() > constants.MINIMAL_MOUSE_DRAG_INTENSITY or self.mouseDrag
             dx *= self.mouseSensitivity
             dy *= self.mouseSensitivity
             self.camera.eulerAngles.x += dy

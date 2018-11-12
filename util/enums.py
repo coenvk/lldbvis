@@ -1,5 +1,5 @@
 from enum import Enum, EnumMeta, _EnumDict
-from Color import Color3
+from util.colors import Color3
 
 
 class IntEnum(int, Enum):

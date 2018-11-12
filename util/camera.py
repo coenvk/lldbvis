@@ -1,14 +1,16 @@
-from Vector import Vector3, Vector2
-from Transformable import Transformable
-from math import pi
+from math import *
+
+from settings import constants
+from util.transform import Transformable
 
 
 class Camera(Transformable):
-    def __init__(self, movementSpeed=0.15, position=Vector3(0, 0, 10), eulerAngles=Vector3()):
+    def __init__(self, movement_speed=constants.DEFAULT_CAMERA_MOVEMENT_SPEED,
+                 position=constants.DEFAULT_CAMERA_POSITION, euler_angles=constants.DEFAULT_CAMERA_EULER_ANGLES):
         Transformable.__init__(self)
         self.position = position
-        self.eulerAngles = eulerAngles
-        self.movementSpeed = movementSpeed
+        self.eulerAngles = euler_angles
+        self.movementSpeed = movement_speed
 
     @property
     def x(self):
@@ -63,4 +65,5 @@ class Camera(Transformable):
         rel_v = v.__copy__()
         rel_v.rotate3(self.eulerAngleXRad, self.eulerAngleYRad, self.eulerAngleZRad)
         dir = self.position - rel_v
+
         return dir.length()

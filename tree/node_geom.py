@@ -3,23 +3,24 @@ from math import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
-from ColorScheme import *
-from Label import Label
-from Material import Material
-from Vector import Vector4, Vector3
+from settings import constants
+from settings.enums import *
+from tree.label import Label
+from util.material import Material
+from util.vectors import Vector3
 
 
 class NodeGeometry:
-    def __init__(self, node):
+    def __init__(self, node, radius=constants.DEFAULT_OPENGL_NODE_RADIUS):
         self.position = Vector3()
-        self.radius = 0.2
+        self.radius = radius
         self.child_distance = 0
-        self.material = Material(
-            Vector4(0, 0, 0.025, 1),
-            Vector4(0.4, 0.4, 0.45, 1),
-            Vector4(0.04, 0.04, 0.37, 1),
-            Vector4(0, 0, 0, 1),
-            0.078125)
+
+        self.acceleration = Vector3()
+        self.velocity = Vector3()
+
+        self.material = constants.OPENGL_NODE_MATERIAL
+
         self.collapsed = False
         self.node = node
         self.label = Label(self.node, Vector3(self.x, self.y, self.z))
@@ -88,7 +89,7 @@ class NodeGeometry:
         glLineWidth(3.0)
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
         glColor3f(1, 1, 1)
-        gluSphere(quadric, self.radius, 20, 20)
+        gluSphere(quadric, self.radius, constants.OPENGL_NODE_SPHERE_SLICES, constants.OPENGL_NODE_SPHERE_STACKS)
         glPopAttrib()
 
     def _drawCylinder(self, pos, radius, subdivisions, quadric):
@@ -97,14 +98,14 @@ class NodeGeometry:
         n1 = v1.unit()
         n2 = Vector3.unitZ()
 
-        angle = acos(n1.dot(n2))
+        angle = n1.angle(n2)
 
         if abs(angle) < 0.001:
             angle = 0
 
-        axis = n1.cross(n2).unit()
+        axis = -n1.cross(n2).unit()
 
-        angle = angle * 180 / pi + 180
+        angle = angle * 180 / pi
 
         glRotatef(angle, axis.x, axis.y, axis.z)
 
@@ -114,6 +115,8 @@ class NodeGeometry:
     def draw(self, widget):
         quadric = widget.quadric
         highlight_id = widget.selectedId
+
+        glEnable(GL_DEPTH_TEST)
 
         glPushMatrix()
 
@@ -129,7 +132,8 @@ class NodeGeometry:
                 glDisable(GL_COLOR_MATERIAL)
                 Material.chrome().setGL()
 
-                self._drawCylinder(child.geom.position, 0.03, 5, quadric)
+                self._drawCylinder(child.geom.position, constants.OPENGL_EDGE_CYLINDER_RADIUS,
+                                   constants.OPENGL_EDGE_CYLINDER_SUBDIVISIONS, quadric)
 
                 glPopMatrix()
                 glPopAttrib()
@@ -144,12 +148,14 @@ class NodeGeometry:
         self.material.setGL()
         glColor3f(self.color.r, self.color.g, self.color.b)
         glLoadName(self.node.id)
-        gluSphere(quadric, self.radius, 20, 20)
+        gluSphere(quadric, self.radius, constants.OPENGL_NODE_SPHERE_SLICES, constants.OPENGL_NODE_SPHERE_STACKS)
         if outlined:
             self._postOutline(quadric)
 
         # draw label
-        if widget.camera.distance(self.absolutePosition - widget.selectedNode().absolutePosition) < 8 or highlight_id == self.node.id:
+        if widget.camera.distance(
+                self.absolutePosition - widget.selectedNode().absolutePosition) < \
+                constants.OPENGL_MINIMAL_LABEL_ZOOM_DISTANCE or highlight_id == self.node.id:
             self.label.draw(widget)
 
         glPopMatrix()

@@ -1,4 +1,4 @@
-from Vector import Vector4
+from util.vectors import Vector4
 from OpenGL.GL import *
 
 

@@ -1,19 +1,19 @@
-from NodeData import *
-from NodeGeometry import NodeGeometry
+from node_data import *
+from node_geom import NodeGeometry
 
-globalId = 0
+global_id = 0
 
 
 class Node:
     def __init__(self, data=None):
-        global globalId
+        global global_id
         self.data = data
         self._parent = None
         self.children = []
-        self.id = globalId
+        self.id = global_id
         self.depth = 0
         self.geom = NodeGeometry(self)
-        globalId += 1
+        global_id += 1
 
     def isProcessNode(self):
         return isinstance(self.data, ProcessData)
@@ -69,6 +69,13 @@ class Node:
     def size(self):
         return len(self.children)
 
+    def totalSize(self):
+        n = self.size()
+        for i in range(self.size()):
+            child = self[i]
+            n += child.totalSize()
+        return n
+
     def clear(self):
         self.children = []
 
@@ -93,6 +100,10 @@ class Node:
                 child.updateChildDepth()
             else:
                 raise TypeError
+
+    def addAll(self, children):
+        for child in children:
+            self.add(child)
 
     def updateChildDepth(self):
         for i in range(self.size()):

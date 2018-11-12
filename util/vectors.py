@@ -1,5 +1,5 @@
 from math import *
-from Transformable import Transformable
+from transform import Transformable
 
 
 class Vector2(Transformable):
@@ -172,6 +172,13 @@ class Vector2(Transformable):
     def setTo(self, v):
         self.x = v.x
         self.y = v.y
+
+    def rounded(self, threshold=None):
+        if threshold is None:
+            return Vector2(round(self.x), round(self.y))
+        x = self.x if abs(self.x - round(self.x)) > threshold else round(self.x)
+        y = self.y if abs(self.y - round(self.y)) > threshold else round(self.y)
+        return Vector2(x, y)
 
     def __str__(self):
         return '{' + str(self.x) + ',' + str(self.y) + '}'
@@ -362,12 +369,21 @@ class Vector3(Transformable):
             v = self.unitX()
         if v.length() == 0 or self.length() == 0:
             return 0
-        return acos(self.dot(v) / (self.length() * v.length()))
+
+        return atan2(self.cross(v).length(), self.dot(v))
 
     def setTo(self, v):
         self.x = v.x
         self.y = v.y
         self.z = v.z
+
+    def rounded(self, threshold=None):
+        if threshold is None:
+            return Vector3(round(self.x), round(self.y), round(self.z))
+        x = self.x if abs(self.x - round(self.x)) > threshold else round(self.x)
+        y = self.y if abs(self.y - round(self.y)) > threshold else round(self.y)
+        z = self.z if abs(self.z - round(self.z)) > threshold else round(self.z)
+        return Vector3(x, y, z)
 
     def __str__(self):
         return '{' + str(self.x) + ',' + str(self.y) + ',' + str(self.z) + '}'
@@ -571,6 +587,15 @@ class Vector4(Transformable):
         self.y = v.y
         self.z = v.z
         self.w = v.w
+
+    def rounded(self, threshold=None):
+        if threshold is None:
+            return Vector4(round(self.x), round(self.y), round(self.z), round(self.w))
+        x = self.x if abs(self.x - round(self.x)) > threshold else round(self.x)
+        y = self.y if abs(self.y - round(self.y)) > threshold else round(self.y)
+        z = self.z if abs(self.z - round(self.z)) > threshold else round(self.z)
+        w = self.w if abs(self.w - round(self.w)) > threshold else round(self.w)
+        return Vector4(x, y, z, w)
 
     def __str__(self):
         return '{' + str(self.x) + ',' + str(self.y) + ',' + str(self.z) + ',' + str(self.w) + '}'

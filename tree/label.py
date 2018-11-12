@@ -1,13 +1,14 @@
 from OpenGL.GL import *
 from PyQt4.QtGui import *
 
-from Vector import Vector3
+from util.vectors import Vector3
+from settings import constants
 
 
 class Label:
     def __init__(self, node, position=Vector3()):
         self.node = node
-        self.font = QFont("Arial", 10)
+        self.font = constants.OPENGL_LABEL_FONT
         self.fontMetrics = QFontMetrics(self.font)
         self.position = self.centerText(position)
 
@@ -36,6 +37,8 @@ class Label:
     def draw(self, widget):
         glPushAttrib(GL_LIGHTING)
         glDisable(GL_LIGHTING)
+        color = constants.OPENGL_LABEL_FONT_COLOR
+        glColor3f(color.red(), color.green(), color.blue())
         glColor3f(1, 1, 1)
         widget.renderText(self.x, self.y, self.z, self.text, self.font)
         glPopAttrib()
