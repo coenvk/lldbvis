@@ -5,7 +5,7 @@ from lldb import *
 from events import dispatcher, signals
 from meta.meta_classes import Singleton
 from util import bpl
-from log import LogLevel
+from util.log import LogLevel
 
 
 class Debugger:

@@ -4,7 +4,7 @@ from PyQt4.QtGui import *
 
 from debug import debugger
 from events import dispatcher, signals
-from log import LogLevel
+from util.log import LogLevel
 
 
 class ConsoleWidget(QWidget):
