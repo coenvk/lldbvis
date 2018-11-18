@@ -1,0 +1,3 @@
+import lldbvis
+
+lldbvis.main()
