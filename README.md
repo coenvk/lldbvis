@@ -48,5 +48,7 @@ lldbvis
 To debug a program, simply set the 'Run Target' from the menu. This should be an executable, such as a C++ compiled program.
 The left window provides more information on the running threads and their frames. In the bottom, there are multiple windows/tabs. One of these is used for processing the execution, one to display console output and the last one can be used by people that are more acquainted to debugging and can be used to run lldb commands and view the output. Furthermore, the right window displays information about selected objects in the center view. This center view gives a graphical representation of the debug data as a 3d tree layout. This way, members of objects can be traversed in an easy manner.
 
+More explanatory usage instructions can be found at the [wiki page](https://github.com/campoe/lldbvis/wiki).
+
 ## License
 [MIT](https://github.com/campoe/lldbvis/blob/master/LICENSE)
